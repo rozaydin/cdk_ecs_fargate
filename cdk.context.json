@@ -1,0 +1,43 @@
+{
+  "availability-zones:account=221148627084:region=eu-central-1": [
+    "eu-central-1a",
+    "eu-central-1b",
+    "eu-central-1c"
+  ],
+  "vpc-provider:account=221148627084:filter.isDefault=true:region=eu-central-1:returnAsymmetricSubnets=true": {
+    "vpcId": "vpc-eb627883",
+    "vpcCidrBlock": "172.31.0.0/16",
+    "ownerAccountId": "221148627084",
+    "availabilityZones": [],
+    "subnetGroups": [
+      {
+        "name": "Public",
+        "type": "Public",
+        "subnets": [
+          {
+            "subnetId": "subnet-0f3a9464",
+            "cidr": "172.31.16.0/20",
+            "availabilityZone": "eu-central-1a",
+            "routeTableId": "rtb-9b6fdff0"
+          },
+          {
+            "subnetId": "subnet-5642af2b",
+            "cidr": "172.31.32.0/20",
+            "availabilityZone": "eu-central-1b",
+            "routeTableId": "rtb-9b6fdff0"
+          },
+          {
+            "subnetId": "subnet-0cb16841",
+            "cidr": "172.31.0.0/20",
+            "availabilityZone": "eu-central-1c",
+            "routeTableId": "rtb-9b6fdff0"
+          }
+        ]
+      }
+    ]
+  },
+  "hosted-zone:account=221148627084:domainName=ridvanozaydin.com:region=eu-central-1": {
+    "Id": "/hostedzone/ZSSF5AQQ1HJY6",
+    "Name": "ridvanozaydin.com."
+  }
+}
