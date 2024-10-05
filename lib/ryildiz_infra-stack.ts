@@ -46,6 +46,8 @@ export class RyildizInfraStack extends cdk.Stack {
       }
     );
 
+    /* TODO change ec2.Peer.anyIpv4(), to ALB SG */
+
     ecsServiceSecurityGroup.addIngressRule(
       /*ec2.Peer.securityGroupId(albSecurityGroup.securityGroupId),*/
       ec2.Peer.anyIpv4(),
