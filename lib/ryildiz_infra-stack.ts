@@ -20,6 +20,7 @@ import { Duration } from "aws-cdk-lib";
 import { DockerImageAsset } from "aws-cdk-lib/aws-ecr-assets";
 import * as path from "node:path";
 import { LoadBalancingProtocol } from "aws-cdk-lib/aws-elasticloadbalancing";
+import { Port } from "aws-cdk-lib/aws-ec2";
 
 export class RyildizInfraStack extends cdk.Stack {
   private PREFIX = "krs";
@@ -34,6 +35,30 @@ export class RyildizInfraStack extends cdk.Stack {
     const vpc = ec2.Vpc.fromLookup(this, "default", {
       isDefault: true,
     });
+
+    const ecsServiceSecurityGroup = new ec2.SecurityGroup(
+      this,
+      `${this.PREFIX}_ecs_service_sg`,
+      {
+        vpc: vpc,
+        allowAllOutbound: true,
+        description: `${this.PREFIX}_ecs_service_sg`,
+      }
+    );
+
+    ecsServiceSecurityGroup.addIngressRule(
+      /*ec2.Peer.securityGroupId(albSecurityGroup.securityGroupId),*/
+      ec2.Peer.anyIpv4(),
+      Port.tcp(8080),
+      "health check access"
+    );
+
+    ecsServiceSecurityGroup.addIngressRule(
+      /*ec2.Peer.securityGroupId(albSecurityGroup.securityGroupId),*/
+      ec2.Peer.anyIpv4(),
+      Port.tcp(8443),
+      "wss access"
+    );
 
     // Create ECR registry
     const containerRegistry = new ecr.Repository(this, "ContainerRegistry", {
@@ -123,7 +148,7 @@ export class RyildizInfraStack extends cdk.Stack {
       portMappings: [
         {
           // for socket.io
-          containerPort: 8433,
+          containerPort: 8443,
           protocol: ecs.Protocol.TCP,
         },
         {
@@ -166,7 +191,6 @@ export class RyildizInfraStack extends cdk.Stack {
           cpu: 512,
           desiredCount: 1,
           assignPublicIp: true,
-          listenerPort: 8433,
           taskDefinition,
           /*
           taskImageOptions: {
@@ -189,21 +213,43 @@ export class RyildizInfraStack extends cdk.Stack {
           */
           // protocol: ApplicationProtocol.HTTPS,
           // targetProtocol: ApplicationProtocol.HTTP,
+          securityGroups: [ecsServiceSecurityGroup],
           redirectHTTP: true,
           certificate,
           serviceName: this.SERVICE_NAME,
-          // securityGroups: 
           memoryLimitMiB: 2048,
           publicLoadBalancer: true,
         }
       );
+
+    // allow outbound traffic to 8080 for health checks
+    const albSecurityGroups =
+      appLoadBalancerService.loadBalancer.loadBalancerSecurityGroups;
+
+    for (const albSecurityGroupName of albSecurityGroups) {
+      const albSecurityGroup = ec2.SecurityGroup.fromSecurityGroupId(
+        this,
+        "albSecurityGroup",
+        albSecurityGroupName,
+        {}
+      );
+
+      albSecurityGroup.addEgressRule(
+        ec2.Peer.securityGroupId(ecsServiceSecurityGroup.securityGroupId),
+        Port.tcp(8080),
+        "health check access",
+        false
+      );
+    }
+
+    // allow traffic from application load balancer
 
     // health check for target group
     appLoadBalancerService.targetGroup.configureHealthCheck({
       path: "/",
       port: "8080",
       protocol: Protocol.HTTP,
-      interval: Duration.seconds(30),
+      interval: Duration.seconds(10),
       healthyHttpCodes: "200",
       healthyThresholdCount: 2,
       unhealthyThresholdCount: 2,
