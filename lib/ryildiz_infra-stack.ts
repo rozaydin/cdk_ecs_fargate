@@ -225,6 +225,8 @@ export class RyildizInfraStack extends cdk.Stack {
         }
       );
 
+    appLoadBalancerService.taskDefinition.obtainExecutionRole;
+
     // allow outbound traffic to 8080 for health checks
     // Get the ALB's security group
     const albSecurityGroups =
@@ -289,23 +291,41 @@ export class RyildizInfraStack extends cdk.Stack {
       ],
     });
 
-    /*
+    const executionRole = appLoadBalancerService.taskDefinition.executionRole;
+    const executionRoleArn = executionRole ? executionRole.roleArn : "";
+
     const ecsPermission = new iam.PolicyDocument({
       statements: [
         new iam.PolicyStatement({
-          actions: ["ecs:*"],
-          resources: [cluster.clusterArn],
+          sid: "RegisterTaskDefinition",
+          actions: ["ecs:RegisterTaskDefinition"],
+          resources: ["*"],
+        }),
+        new iam.PolicyStatement({
+          sid: "PassRolesInTaskDefinition",
+          actions: ["iam:PassRole"],
+          resources: [
+            appLoadBalancerService.taskDefinition.taskRole.roleArn,
+            executionRoleArn,
+          ],
+        }),
+        new iam.PolicyStatement({
+          sid: "DeployService",
+          actions: ["ecs:UpdateService", "ecs:DescribeServices"],
+          resources: [
+            `arn:aws:ecs:${this.region}:${this.account}:service/${cluster.clusterName}/${this.SERVICE_NAME}`,
+          ],
         }),
       ],
     });
-*/
 
     const cicdRole = new iam.Role(this, "iamRole", {
       assumedBy: new iam.ArnPrincipal(cicdUser.userArn),
       roleName: `${this.PREFIX}_cicd_role`,
       description: "CICD Role",
       inlinePolicies: {
-        ECR_Permissins: ecrPermission,
+        ECR_Permissions: ecrPermission,
+        ECS_Permissions: ecsPermission,
       },
     });
 
