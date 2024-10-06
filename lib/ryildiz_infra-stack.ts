@@ -21,6 +21,7 @@ import { DockerImageAsset } from "aws-cdk-lib/aws-ecr-assets";
 import * as path from "node:path";
 import { LoadBalancingProtocol } from "aws-cdk-lib/aws-elasticloadbalancing";
 import { Port } from "aws-cdk-lib/aws-ec2";
+import { Effect } from "aws-cdk-lib/aws-iam";
 
 export class RyildizInfraStack extends cdk.Stack {
   private PREFIX = "krs";
@@ -225,22 +226,15 @@ export class RyildizInfraStack extends cdk.Stack {
       );
 
     // allow outbound traffic to 8080 for health checks
+    // Get the ALB's security group
     const albSecurityGroups =
-      appLoadBalancerService.loadBalancer.loadBalancerSecurityGroups;
-
-    for (const albSecurityGroupName of albSecurityGroups) {
-      const albSecurityGroup = ec2.SecurityGroup.fromSecurityGroupId(
-        this,
-        "albSecurityGroup",
-        albSecurityGroupName,
-        {}
-      );
-
+      appLoadBalancerService.loadBalancer.connections.securityGroups;
+    // Add egress rule to the ALB's security group for health checks
+    for (const albSecurityGroup of albSecurityGroups) {
       albSecurityGroup.addEgressRule(
         ec2.Peer.securityGroupId(ecsServiceSecurityGroup.securityGroupId),
-        Port.tcp(8080),
-        "health check access",
-        false
+        ec2.Port.tcp(8080),
+        "Allow outbound traffic for health checks on port 8080"
       );
     }
 
@@ -275,8 +269,22 @@ export class RyildizInfraStack extends cdk.Stack {
     const ecrPermission = new iam.PolicyDocument({
       statements: [
         new iam.PolicyStatement({
-          actions: ["ecr:*"],
+          actions: [
+            "ecr:BatchCheckLayerAvailability",
+            "ecr:BatchGetImage",
+            "ecr:CompleteLayerUpload",
+            "ecr:GetDownloadUrlForLayer",
+            "ecr:InitiateLayerUpload",
+            "ecr:PutImage",
+            "ecr:UploadLayerPart",
+          ],
+          effect: Effect.ALLOW,
           resources: [containerRegistry.repositoryArn],
+        }),
+        new iam.PolicyStatement({
+          actions: ["ecr:GetAuthorizationToken"],
+          effect: Effect.ALLOW,
+          resources: ["*"],
         }),
       ],
     });
